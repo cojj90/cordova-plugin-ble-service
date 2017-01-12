@@ -9,3 +9,7 @@ module.exports = {
         cordova.exec(successWrapper, failure, 'BLE', 'scan', [services, seconds]);
     }
 };
+
+module.exports.withPromises = {
+    scan: module.exports.scan
+}
