@@ -1,6 +1,6 @@
 {
     "name": "cordova-plugin-ble-service",
-    "version": "1.1.4",
+    "version": "0.0.1",
     "description": "Bluetooth Low Energy (BLE) Service Plugin",
     "cordova": {
         "id": "cordova-plugin-ble-service",
