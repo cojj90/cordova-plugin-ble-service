@@ -7,5 +7,5 @@ module.exports = {
             success(peripheral);
         };
         cordova.exec(successWrapper, failure, 'BLE', 'scan', [services, seconds]);
-    },
-}
+    }
+};

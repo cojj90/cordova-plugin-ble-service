@@ -24,7 +24,7 @@ version="0.0.1">
 
             <source-file
             src="src/android/MainPlugin.java"
-            target-dir="com/cojj/cordova/ble/service" />
+            target-dir="src/com/cojj/cordova/ble/service" />
 
     </platform>
     
