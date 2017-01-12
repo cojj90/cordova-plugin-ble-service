@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+xmlns:android="http://schemas.android.com/apk/res/android"
+id="cordova-plugin-ble-service"
+version="0.0.1">
+    <name>BLE</name>
+    <description>Cordova BLE Plugin</description>
+    <license>Apache 2.0</license>
+    <keywords>cordova,ble</keywords>
+
+    <repo>https://github.com/cojj90/cordova-plugin-ble-service.git</repo>
+
+    <js-module src="www/ICT_BLE.js" name="ICT_BLE">
+        <clobbers target="" />
+    </js-module>
+
+    <platform name="android">
+
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+            <uses-permission android:name="android.permission.BLUETOOTH"/>
+            <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+        </config-file>
+
+<!--
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <service android:name="com.megster.cordova.ble.central.BLEDevices" />
+        </config-file>
+-->    
+    </platform>
+    
+</plugin>
