@@ -1,2 +1,10 @@
 ext.cdvBuildToolsVersion = JavaVersion.VERSION_1_8
 ext.cdvCompileSdkVersion = JavaVersion.VERSION_1_8
+
+android{
+    defaultConfig{
+      jackOptions {
+         enabled true
+      }
+    }
+}
