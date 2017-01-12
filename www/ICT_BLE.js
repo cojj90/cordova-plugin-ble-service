@@ -1,7 +1,7 @@
 "use strict";
 
 module.exports = {
-    scan: function () {
-        console.alert("SCAN");
+    scan: function (success, failure) {
+        cordova.exec(success, failure, 'ICT_BLE', 'scan', null);
     }
 };

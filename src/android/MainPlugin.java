@@ -13,6 +13,12 @@ public class MainPlugin extends CordovaPlugin {
         Log.e(TAG, "BLE: Main Cordova Init");
     }
 
+    @Override
+    public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
+        Log.e(TAG, "BLE: " + action);
+        return true;
+    }
+
     // START OF ANDROID LIFECYCLE
     public void onCreate() {
         Log.e(TAG, "BLE: Main onCreate");
