@@ -22,11 +22,10 @@ version="0.0.1">
             <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
         </config-file>
 
-<!--
-        <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <service android:name="com.megster.cordova.ble.central.BLEDevices" />
-        </config-file>
--->    
+            <source-file
+            src="src/android/MainPlugin.java"
+            target-dir="com/cojj/cordova/ble/service" />
+
     </platform>
     
 </plugin>
