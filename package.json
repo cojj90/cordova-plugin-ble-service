@@ -1,0 +1,29 @@
+{
+    "name": "cordova-plugin-ble-service",
+    "version": "1.1.4",
+    "description": "Bluetooth Low Energy (BLE) Service Plugin",
+    "cordova": {
+        "id": "cordova-plugin-ble-service",
+        "platforms": [
+            "android"
+        ]
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/cojj90/cordova-plugin-ble-central.git"
+    },
+    "keywords": [
+        "cordova",
+        "bluetooth",
+        "ble",
+        "bluetoothle",
+        "bluetooth le",
+        "low energy",
+        "smart",
+        "ecosystem:cordova",
+        "cordova-ios",
+        "cordova-android"
+    ],
+    "author": "ChaeJin Jun <nzjun90@gmail.com>",
+    "license": "Apache-2.0",
+}
