@@ -26,6 +26,8 @@ version="0.0.1">
             src="src/android/MainPlugin.java"
             target-dir="src/com/cojj/cordova/ble/service" />
 
+            <framework src="src/android/rules.gradle" custom="true" type="gradleReference" />
+
     </platform>
     
 </plugin>
