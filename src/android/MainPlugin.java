@@ -4,6 +4,11 @@ import org.apache.cordova.*;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.ServiceConnection;
+import android.content.ComponentName;
+import android.content.Intent;
+
+import android.os.IBinder;
 import android.util.Log;
 import android.os.Handler;
 
@@ -11,10 +16,23 @@ public class MainPlugin extends CordovaPlugin {
     private static final String TAG = "ICT BLE";
     private CallbackContext callbackContext;
 
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
+            Log.e(TAG, "BLE: SERVICE CONNECTED");
+        }
+
+        public void onServiceDisconnected(ComponentName paramAnonymousComponentName) {
+            Log.e(TAG, "BLE: SERVICE DISCONNECTED");
+        }
+
+    };
+
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
+        cordova.getActivity().bindService(new Intent(cordova.getActivity(), BLEService.class), this.mServiceConnection,
+                1);
     }
 
     @Override
@@ -26,16 +44,28 @@ public class MainPlugin extends CordovaPlugin {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                MainPlugin.this.callbackContext.success();
+                PluginResult result = new PluginResult(PluginResult.Status.OK, "YOUR_MESSAGE");
+                // PluginResult result = new PluginResult(PluginResult.Status.ERROR, "YOUR_ERROR_MESSAGE");
+                result.setKeepCallback(true);
+                MainPlugin.this.callbackContext.sendPluginResult(result);
             }
         }, 5000);
 
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                MainPlugin.this.callbackContext.success();
+                PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+                result.setKeepCallback(false);
+                MainPlugin.this.callbackContext.sendPluginResult(result);
             }
         }, 10000);
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                MainPlugin.this.callbackContext.success();
+            }
+        }, 15000);
 
         /*
         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
