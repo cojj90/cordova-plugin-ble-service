@@ -5,58 +5,32 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.content.ServiceConnection;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.Context;
-
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothAdapter.LeScanCallback;
-import android.bluetooth.BluetoothDevice;
 
 import android.os.IBinder;
 import android.util.Log;
 import android.os.Handler;
 
-class MainPlugin extends CordovaPlugin {
+public class MainPlugin extends CordovaPlugin {
     private static final String TAG = "ICT BLE";
     private CallbackContext callbackContext;
-    private BLEService mBluetoothLeService;
-    private BluetoothAdapter bluetoothAdapter;
+
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
             Log.e(TAG, "BLE: SERVICE CONNECTED");
-            MainPlugin.this.mBluetoothLeService = ((BLEService.LocalBinder) paramAnonymousIBinder).getService();
-            MainPlugin.this.mBluetoothLeService.initialise();
-            MainPlugin.this.bluetoothAdapter.startLeScan(MainPlugin.this.mLeScanCallback);
         }
 
         public void onServiceDisconnected(ComponentName paramAnonymousComponentName) {
             Log.e(TAG, "BLE: SERVICE DISCONNECTED");
         }
-    };
 
-    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
-        public void onReceive(Context paramAnonymousContext, Intent paramAnonymousIntent) {
-            Log.e(TAG, "BLE: BROADCASTE RECEIVED");
-        }
-    };
-
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            MainPlugin.this.mBluetoothLeService.addDevice(device, rssi, scanRecord);
-        }
     };
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
-
-        BluetoothManager bluetoothManager = (BluetoothManager) cordova.getActivity()
-                .getSystemService(Context.BLUETOOTH_SERVICE);
-        bluetoothAdapter = bluetoothManager.getAdapter();
         cordova.getActivity().bindService(new Intent(cordova.getActivity(), BLEService.class), this.mServiceConnection,
                 1);
     }
