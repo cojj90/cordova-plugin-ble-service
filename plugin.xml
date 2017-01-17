@@ -33,6 +33,7 @@ version="0.0.1">
         </config-file>
 
         <framework src="com.polidea.rxandroidble:rxandroidble:1.1.0+"/>
+        <framework src="me.tatarka:gradle-retrolambda:3.4.0+"/>
         
             <source-file
             src="src/android/MainPlugin.java"
