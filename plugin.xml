@@ -32,6 +32,8 @@ version="0.0.1">
             <service android:name="com.cojj.cordova.ble.service.BLEService" />
         </config-file>
 
+        <framework src="com.polidea.rxandroidble:rxandroidble:1.1.0+"/>
+        
             <source-file
             src="src/android/MainPlugin.java"
             target-dir="src/com/cojj/cordova/ble/service" />

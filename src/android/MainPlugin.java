@@ -4,21 +4,34 @@ import org.apache.cordova.*;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+
 import android.content.ServiceConnection;
 import android.content.ComponentName;
 import android.content.Intent;
-
+import android.content.Context;
 import android.os.IBinder;
 import android.util.Log;
 import android.os.Handler;
+import android.Manifest;
+import android.content.pm.PackageManager;
 
 public class MainPlugin extends CordovaPlugin {
     private static final String TAG = "ICT BLE";
+    private static final String ACCESS_COARSE_LOCATION = Manifest.permission.ACCESS_COARSE_LOCATION;
+    private static final int REQUEST_ACCESS_COARSE_LOCATION = 2;
     private CallbackContext callbackContext;
+    private Context context;
+    private BLEService bleService;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
             Log.e(TAG, "BLE: SERVICE CONNECTED");
+            MainPlugin.this.bleService = ((BLEService.LocalBinder) paramAnonymousIBinder).getService();
+            MainPlugin.this.bleService.initialise(cordova);
+
         }
 
         public void onServiceDisconnected(ComponentName paramAnonymousComponentName) {
@@ -31,8 +44,13 @@ public class MainPlugin extends CordovaPlugin {
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
-        cordova.getActivity().bindService(new Intent(cordova.getActivity(), BLEService.class), this.mServiceConnection,
-                1);
+
+        if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
+            PermissionHelper.requestPermission(this, REQUEST_ACCESS_COARSE_LOCATION, ACCESS_COARSE_LOCATION);
+            return;
+        }else{
+            initService();
+        }
     }
 
     @Override
@@ -73,6 +91,28 @@ public class MainPlugin extends CordovaPlugin {
         callbackContext.sendPluginResult(result);
         */
         return true;
+    }
+
+    public void onRequestPermissionResult(int requestCode, String[] permissions,
+            int[] grantResults) /* throws JSONException */ {
+        for (int result : grantResults) {
+            if (result == PackageManager.PERMISSION_DENIED) {
+                Log.e(TAG, "BLE User *rejected* Coarse Location Access");
+                return;
+            }
+        }
+
+        switch (requestCode) {
+        case REQUEST_ACCESS_COARSE_LOCATION:
+            Log.e(TAG, "BLE User granted Coarse Location Access");        
+            initService();
+            break;
+        }
+    }
+
+    private void initService(){
+            cordova.getActivity().bindService(new Intent(cordova.getActivity(), BLEService.class), this.mServiceConnection, 1);
+            this.context = cordova.getActivity();
     }
 
     // START OF ANDROID LIFECYCLE
