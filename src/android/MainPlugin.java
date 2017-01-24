@@ -25,12 +25,11 @@ public class MainPlugin extends CordovaPlugin {
     private CallbackContext callbackContext;
     private Context context;
     private BLEService bleService;
-
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
             Log.e(TAG, "BLE: SERVICE CONNECTED");
             MainPlugin.this.bleService = ((BLEService.LocalBinder) paramAnonymousIBinder).getService();
-            MainPlugin.this.bleService.initialise(cordova);
+            //MainPlugin.this.bleService.initialise(cordova);
 
         }
 
@@ -45,6 +44,8 @@ public class MainPlugin extends CordovaPlugin {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
 
+        BLEData.getInstance().test = "MAIN SET";
+        
         if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
             PermissionHelper.requestPermission(this, REQUEST_ACCESS_COARSE_LOCATION, ACCESS_COARSE_LOCATION);
             return;
@@ -111,8 +112,12 @@ public class MainPlugin extends CordovaPlugin {
     }
 
     private void initService(){
-            cordova.getActivity().bindService(new Intent(cordova.getActivity(), BLEService.class), this.mServiceConnection, 1);
+            Intent intent = new Intent(cordova.getActivity(), BLEService.class);
+            cordova.getActivity().bindService(intent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
             this.context = cordova.getActivity();
+            intent.putExtra("key", "BOBBY");
+            context.startService(intent);
+            
     }
 
     // START OF ANDROID LIFECYCLE
