@@ -29,7 +29,7 @@ version="0.0.1">
         </config-file>
         
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <service android:name="com.cojj.cordova.ble.service.BLEService" android:isolatedProcess="true" android:process=":remote" />
+            <service android:name="com.cojj.cordova.ble.service.BLEService" android:isolatedProcess="false" android:process=":remote" />
         </config-file>
         <!--
         <framework src="com.polidea.rxandroidble:rxandroidble:1.1.0+"/>
