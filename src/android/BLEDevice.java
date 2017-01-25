@@ -74,6 +74,7 @@ public class BLEDevice {
             this.average > THRASH_HOLD ||
             this.thrashHoldCount > 2
             ){
+            Log.e("DEVICE", "BLE: OPEN"+this.queueUnlock+"/"+this.average+"/"+this.thrashHoldCount);
             this.queueUnlock = false;
             return true;
         } 

@@ -13,6 +13,7 @@ import android.os.PowerManager;
 import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.os.Build;
+import android.os.Vibrator;
 import java.security.SecureRandom;
 
 import android.bluetooth.le.ScanResult;
@@ -77,6 +78,7 @@ public class BLEService extends Service {
     private BluetoothGatt gatt;
     private BluetoothGattService service;
     private BluetoothLeScanner mLEScanner;
+    private Vibrator vibrator;
 
     private boolean connected = false;
     private boolean connecting = false;
@@ -96,13 +98,14 @@ public class BLEService extends Service {
     //private String peripheralToConnect = "ED:45:A0:53:90:10";
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanData) {
-            LOG.w("Service", "BLE SCAN:" + device.toString() +" / "+rssi);
+            Log.w("Service", "BLE SCAN:" + device.toString() +" / "+rssi);
             BLEService.this.scanResult(device, rssi, scanData);
         }
     };
 
     private final ScanCallback mScanCallback = new ScanCallback(){
         public void onScanResult(int callbackType, ScanResult result){
+                Log.w("Service", "BLE SCAN:" + result.getDevice().toString() +" / "+result.getRssi());
                 BLEService.this.scanResult(result.getDevice(), result.getRssi(), null);
         }
     };
@@ -120,9 +123,7 @@ public class BLEService extends Service {
         }else if(status1 == 133 && BLEService.this.connected == false){
             gatt.connect(); //handle weird error
         }else if(newState == BluetoothGatt.STATE_DISCONNECTED){
-            BLEService.this.close();
-            BLEService.this.reset();
-            BLEService.this.scan();
+            BLEService.this.rinseNrepeat();
         }
     }
 
@@ -173,9 +174,7 @@ public class BLEService extends Service {
             BLEService.this.queueCommand(command);
         } else {
             Log.e(TAG, "Service discovery failed. status = " + status);
-            BLEService.this.close();
-            BLEService.this.reset();
-            BLEService.this.scan();
+            BLEService.this.rinseNrepeat();
         }
 
     }
@@ -207,7 +206,8 @@ public class BLEService extends Service {
         Activity activity = cordova.getActivity();
         bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
-        
+        vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+
         if (bluetoothAdapter != null) {
             registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
             if (bluetoothAdapter.isEnabled()) {
@@ -224,7 +224,8 @@ public class BLEService extends Service {
 
         bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
-        
+        vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+
         if (Build.VERSION.SDK_INT >= 21) {
         this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
         }
@@ -255,7 +256,7 @@ public class BLEService extends Service {
         }
     }
 
-    public void scanResult(BluetoothDevice device, int rssi, byte[] scanData){
+    public void scanResult(final BluetoothDevice device, int rssi, byte[] scanData){
         
         BLEDevice tempDevice = this.mDeviceMap.get(device.getAddress());
         if(tempDevice == null){
@@ -266,7 +267,11 @@ public class BLEService extends Service {
         }
 
         if(tempDevice.check()){
-            this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+            if(Build.VERSION.SDK_INT >= 21){    
+                this.mLEScanner.stopScan(mScanCallback);
+            }else{
+                this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+            }
             this.connect(device.getAddress());
         }
     }
@@ -275,6 +280,7 @@ public class BLEService extends Service {
         if(this.connecting == true) return;
 
         this.connecting = true;
+        this.vibrator.vibrate(1000);
         this.gatt = this.mDeviceMap.get(macAddress).getDevice().connectGatt(this, false, this.mGattCallback);
     }
 
@@ -285,19 +291,20 @@ public class BLEService extends Service {
 
     public void close(){
         //Log.e(TAG, "BLE: CURRENT STATE1: "+this.bluetoothManager.getConnectionState(this.mDeviceMap.get("D0:37:1A:D7:9F:BF"), 7));
-        this.gatt.disconnect();
         this.refresh(this.gatt);
+        this.gatt.disconnect();
         this.gatt.close();
         //Log.e(TAG, "BLE: CURRENT STATE2: "+this.bluetoothManager.getConnectionState(this.mDeviceMap.get("D0:37:1A:D7:9F:BF"), 7));
         this.gatt = null;
-        
+    }
+
+    public void sleep(int a){
         try{
             //5 max scan per 30 seconds
-            Thread.sleep(3000);
+            Thread.sleep(a);
         } catch(Exception e){
 
         }
-        
     }
 
     public void reset(){
@@ -306,6 +313,13 @@ public class BLEService extends Service {
         this.connecting = false;
         this.connected = false;
         this.key = "";
+    }
+
+    public void rinseNrepeat(){
+            this.close();
+            this.reset();
+            this.sleep(3000);
+            this.scan();
     }
 
     public void firstSend(byte[] received){
@@ -632,13 +646,27 @@ public class BLEService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.e(TAG, "BLE: Service onStartCommand " + intent.getStringExtra("key"));
+        //Log.e(TAG, "BLE: Service onStartCommand " + intent.getStringExtra("key"));
         initialiseTwo();
         return START_STICKY;
     }
 
     public void onTaskRemoved(Intent rootIntent) {
         Log.e(TAG, "BLE: Service onTraskRemoved");
+                        /*
+    import android.os.SystemClock;
+    import android.app.AlarmManager;
+    import android.app.PendingIntent;
+    Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
+    restartServiceTask.setPackage(getPackageName());    
+    restartServiceTask.putExtra("key", "BOBBY2");
+    PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
+    AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+    myAlarmService.set(
+            AlarmManager.ELAPSED_REALTIME,
+            SystemClock.elapsedRealtime() + 1000,
+            restartPendingIntent);
+            */
     }
 
     public void onTrimMemory(int level) {

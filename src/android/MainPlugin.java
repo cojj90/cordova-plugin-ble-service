@@ -113,7 +113,7 @@ public class MainPlugin extends CordovaPlugin {
 
     private void initService(){
             Intent intent = new Intent(cordova.getActivity(), BLEService.class);
-            cordova.getActivity().bindService(intent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
+            //cordova.getActivity().bindService(intent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
             this.context = cordova.getActivity();
             intent.putExtra("key", "BOBBY");
             context.startService(intent);
