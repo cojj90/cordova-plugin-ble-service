@@ -27,6 +27,7 @@ version="0.0.1">
             <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
             <uses-permission android:name="android.permission.BLUETOOTH"/>
             <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+            <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
         </config-file>
         
         <config-file target="AndroidManifest.xml" parent="/manifest/application">

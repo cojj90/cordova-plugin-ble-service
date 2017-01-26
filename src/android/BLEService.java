@@ -280,7 +280,7 @@ public class BLEService extends Service {
         if(this.connecting == true) return;
 
         this.connecting = true;
-        this.vibrator.vibrate(1000);
+        this.vibrator.vibrate(500);
         this.gatt = this.mDeviceMap.get(macAddress).getDevice().connectGatt(this, false, this.mGattCallback);
     }
 
@@ -290,11 +290,9 @@ public class BLEService extends Service {
     }
 
     public void close(){
-        //Log.e(TAG, "BLE: CURRENT STATE1: "+this.bluetoothManager.getConnectionState(this.mDeviceMap.get("D0:37:1A:D7:9F:BF"), 7));
         this.refresh(this.gatt);
         this.gatt.disconnect();
         this.gatt.close();
-        //Log.e(TAG, "BLE: CURRENT STATE2: "+this.bluetoothManager.getConnectionState(this.mDeviceMap.get("D0:37:1A:D7:9F:BF"), 7));
         this.gatt = null;
     }
 
