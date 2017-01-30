@@ -10,6 +10,8 @@ version="0.0.1">
 
     <repo>https://github.com/cojj90/cordova-plugin-ble-service.git</repo>
 
+    <dependency id="cordova-plugin-compat" version="^1.0.0" />
+    
     <js-module src="www/ICT_BLE.js" name="ICT_BLE">
         <clobbers target="ICT_BLE" />
     </js-module>
