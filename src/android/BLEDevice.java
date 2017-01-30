@@ -90,5 +90,9 @@ public class BLEDevice {
         return this.device;
     }
 
+    public float getAverage(){
+        return this.average;
+    }
+
 
 }

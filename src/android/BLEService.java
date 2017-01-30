@@ -22,6 +22,10 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.BluetoothLeScanner;
 
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
+import com.cojj.cordova.ble.service.ShakeDetector.OnShakeListener;
+
 import java.lang.Thread;
 import java.lang.reflect.Method;
 
@@ -94,7 +98,13 @@ public class BLEService extends Service {
     private byte[] rndAShifted = new byte[16];
     private byte[] newIV = new byte[16];
 
+	// The following are used for the shake detection
+	private SensorManager mSensorManager;
+	private Sensor mAccelerometer;
+	private ShakeDetector mShakeDetector;
+
     private BluetoothGattCharacteristic txCharacteristics;
+
     //private String peripheralToConnect = "ED:45:A0:53:90:10";
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanData) {
@@ -186,7 +196,7 @@ public class BLEService extends Service {
         
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
         if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
-            BLEService.this.scan();
+            BLEService.this.initialiseTwo();
         }
         if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
             //BLUETOOTH TURNED OFF
@@ -208,6 +218,30 @@ public class BLEService extends Service {
         this.bluetoothAdapter = bluetoothManager.getAdapter();
         vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
 
+         // ShakeDetector initialization
+		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+		mAccelerometer = mSensorManager
+				.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mShakeDetector = new ShakeDetector();
+		mShakeDetector.setOnShakeListener(new OnShakeListener() {
+			@Override
+			public void onShake(int count) {
+				/*
+				 * The following method, "handleShakeEvent(count):" is a stub //
+				 * method you would use to setup whatever you want done once the
+				 * device has been shook.
+				 */
+				//handleShakeEvent(count);
+                Log.e("SHAKE", "BLE: SHAKE");
+                BLEService.this.connectClosest();
+			}
+		});
+        mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
+
+        if (Build.VERSION.SDK_INT >= 21) {
+            this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
+        }
+
         if (bluetoothAdapter != null) {
             registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
             if (bluetoothAdapter.isEnabled()) {
@@ -219,12 +253,30 @@ public class BLEService extends Service {
     }
 
     public void initialiseTwo() {
-        
-        Log.e(TAG, "BLE: INIT2" + BLEData.getInstance().test);
 
         bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
         vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+
+        // ShakeDetector initialization
+		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+		mAccelerometer = mSensorManager
+				.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mShakeDetector = new ShakeDetector();
+		mShakeDetector.setOnShakeListener(new OnShakeListener() {
+			@Override
+			public void onShake(int count) {
+				/*
+				 * The following method, "handleShakeEvent(count):" is a stub //
+				 * method you would use to setup whatever you want done once the
+				 * device has been shook.
+				 */
+				//handleShakeEvent(count);
+                Log.e("SHAKE", "BLE: SHAKE");
+                BLEService.this.connectClosest();
+			}
+		});
+        mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
 
         if (Build.VERSION.SDK_INT >= 21) {
         this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
@@ -256,8 +308,19 @@ public class BLEService extends Service {
         }
     }
 
+    public void stopScan(){
+          if(Build.VERSION.SDK_INT >= 21){    
+                this.mLEScanner.stopScan(mScanCallback);
+            }else{
+                this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+            }
+    }
+
     public void scanResult(final BluetoothDevice device, int rssi, byte[] scanData){
-        
+        if(device.getName() == null || !device.getName().equals("TSEC")){
+             Log.e(TAG, "BLE: SCAN NOT TSEC " + device.getName());
+             return;
+        }
         BLEDevice tempDevice = this.mDeviceMap.get(device.getAddress());
         if(tempDevice == null){
             tempDevice = new BLEDevice(device, rssi);
@@ -267,13 +330,38 @@ public class BLEService extends Service {
         }
 
         if(tempDevice.check()){
-            if(Build.VERSION.SDK_INT >= 21){    
-                this.mLEScanner.stopScan(mScanCallback);
-            }else{
-                this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
-            }
+            this.stopScan();
             this.connect(device.getAddress());
         }
+    }
+
+    public void connectClosest(){
+        //check if empty
+        String champion = "";
+        float champRssi = -90.4124524F;
+        for (Map.Entry<String, BLEDevice> entry : this.mDeviceMap.entrySet())
+        {   
+            final BLEDevice tempDevice = entry.getValue();
+            if(champRssi < tempDevice.getAverage()){
+                champion = tempDevice.getDevice().getAddress();
+                champRssi = tempDevice.getAverage();
+            }
+        }
+
+        Log.e(TAG, "BLE: CLOEST: "+ champion + champRssi);
+
+        if(champRssi != -90.4124524F){
+            //this means a candidate is found
+            this.stopScan();
+            this.connect(champion);
+
+        }
+
+        /*
+        this.mDeviceMap.forEach((k,v) -> {
+            Log.e(TAG, "BLE: CLOEST: "+v.getDevice().getAddress());
+        });
+        */
     }
     
     public void connect(String macAddress){
@@ -316,7 +404,7 @@ public class BLEService extends Service {
     public void rinseNrepeat(){
             this.close();
             this.reset();
-            this.sleep(3000);
+            this.sleep(4000);
             this.scan();
     }
 
@@ -476,8 +564,14 @@ public class BLEService extends Service {
                 Log.w(TAG, "BLE: Register Notify " + command.getCharacteristicUUID());
                 bleProcessing = true;
 
-                service = gatt.getService(command.getServiceUUID());
+                service = gatt.getService(UUIDHelper.uuidFromString(this.SERVICE_UUID));
                 
+                //Keep getting null error here
+                if(service == null){
+                    this.rinseNrepeat();
+                    return;
+                }
+
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(command.getCharacteristicUUID());
 
                 Log.w(TAG, "BLE: SET CHAR NOTIFICATION: " + this.gatt.setCharacteristicNotification(characteristic, true));
@@ -651,16 +745,16 @@ public class BLEService extends Service {
 
     public void onTaskRemoved(Intent rootIntent) {
         Log.e(TAG, "BLE: Service onTraskRemoved");
-                        /*
-    import android.os.SystemClock;
-    import android.app.AlarmManager;
-    import android.app.PendingIntent;
-    Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
-    restartServiceTask.setPackage(getPackageName());    
-    restartServiceTask.putExtra("key", "BOBBY2");
-    PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
-    AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-    myAlarmService.set(
+            /*
+            import android.os.SystemClock;
+            import android.app.AlarmManager;
+            import android.app.PendingIntent;
+            Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
+            restartServiceTask.setPackage(getPackageName());    
+            restartServiceTask.putExtra("key", "BOBBY2");
+            PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
+            AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+            myAlarmService.set(
             AlarmManager.ELAPSED_REALTIME,
             SystemClock.elapsedRealtime() + 1000,
             restartPendingIntent);

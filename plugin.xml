@@ -51,7 +51,7 @@ version="0.0.1">
             target-dir="src/com/cojj/cordova/ble/service" />
 
             <source-file
-            src="src/android/BLEData.java"
+            src="src/android/ShakeDetector.java"
             target-dir="src/com/cojj/cordova/ble/service" />
 
             <source-file

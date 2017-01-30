@@ -43,8 +43,6 @@ public class MainPlugin extends CordovaPlugin {
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
-
-        BLEData.getInstance().test = "MAIN SET";
         
         if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
             PermissionHelper.requestPermission(this, REQUEST_ACCESS_COARSE_LOCATION, ACCESS_COARSE_LOCATION);
