@@ -55,6 +55,10 @@ public class MainPlugin extends CordovaPlugin {
     @Override
     public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.e(TAG, "BLE: " + action);
+        Log.e(TAG, "Arg1: " + args.getString(0));
+        Log.e(TAG, "Arg2: " + args.getString(1));
+        Log.e(TAG, "Arg3: " + args.getInt(1));
+        
         this.callbackContext = callbackContext;
 
         Handler handler = new Handler();
