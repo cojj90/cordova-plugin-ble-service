@@ -16,13 +16,14 @@ public class BLEDevice {
     private boolean unlocked;
     private byte thrashHoldCount;
     private boolean queueUnlock;
-    BLEDevice(final BluetoothDevice device, int rssi){
+    BLEDevice(final BluetoothDevice device, int rssi, byte scanSensitivity){
         this.device = device;
         this.lastSeen = System.currentTimeMillis();
         this.average = rssi;
         this.unlocked = false;
         this.queueUnlock = false;
         this.thrashHoldCount = 0;
+        this.THRASH_HOLD = scanSensitivity;
     }
 
     public void update(final BluetoothDevice device, int rssi){

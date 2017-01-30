@@ -25,6 +25,11 @@ public class MainPlugin extends CordovaPlugin {
     private CallbackContext callbackContext;
     private Context context;
     private BLEService bleService;
+
+    private String credential;
+    private byte scanSensitivity;
+    private Intent bleServiceIntent;
+
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
             Log.e(TAG, "BLE: SERVICE CONNECTED");
@@ -43,21 +48,33 @@ public class MainPlugin extends CordovaPlugin {
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.e(TAG, "BLE: Main Cordova Init");
-        
-        if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
-            PermissionHelper.requestPermission(this, REQUEST_ACCESS_COARSE_LOCATION, ACCESS_COARSE_LOCATION);
-            return;
-        }else{
-            initService();
-        }
     }
 
     @Override
     public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
+
+        JSONObject options = args.getJSONObject(0);
         Log.e(TAG, "BLE: " + action);
-        Log.e(TAG, "Arg1: " + args.getString(0));
-        Log.e(TAG, "Arg2: " + args.getString(1));
-        Log.e(TAG, "Arg3: " + args.getInt(1));
+        //Log.e(TAG, "BLE Arg1: " + options.getInt("id"));
+        //Log.e(TAG, "BLE Arg2: " + options.getBoolean("test"));
+        Log.e(TAG, "BLE Arg3: " + options.getString("credential"));
+
+        this.credential = options.getString("credential");
+        this.scanSensitivity = (byte) options.getInt("sensitivity");
+
+        if(options.getBoolean("test") == true){
+            Log.e(TAG, "BLE: STOP");
+            this.stopService();
+            return true;
+        }
+        Log.e(TAG, "BLE: GO");
+
+        if (!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
+            PermissionHelper.requestPermission(this, REQUEST_ACCESS_COARSE_LOCATION, ACCESS_COARSE_LOCATION);
+            return false;
+        }else{
+            initService();
+        }
         
         this.callbackContext = callbackContext;
 
@@ -114,12 +131,16 @@ public class MainPlugin extends CordovaPlugin {
     }
 
     private void initService(){
-            Intent intent = new Intent(cordova.getActivity(), BLEService.class);
+            this.bleServiceIntent = new Intent(cordova.getActivity(), BLEService.class);
             //cordova.getActivity().bindService(intent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
             this.context = cordova.getActivity();
-            intent.putExtra("key", "BOBBY");
-            context.startService(intent);
-            
+            this.bleServiceIntent.putExtra("credential", this.credential);
+            this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
+            context.startService(this.bleServiceIntent);
+    }
+
+    private void stopService(){
+        this.context.stopService(this.bleServiceIntent);
     }
 
     // START OF ANDROID LIFECYCLE

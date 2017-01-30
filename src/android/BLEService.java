@@ -88,6 +88,8 @@ public class BLEService extends Service {
     private boolean connecting = false;
     private boolean bleProcessing;
     private String key;
+    private String credential;
+    private byte scanSensitivity;
 
     private int step = 0;
     private byte[] rxBuffer = new byte[32];
@@ -323,7 +325,7 @@ public class BLEService extends Service {
         }
         BLEDevice tempDevice = this.mDeviceMap.get(device.getAddress());
         if(tempDevice == null){
-            tempDevice = new BLEDevice(device, rssi);
+            tempDevice = new BLEDevice(device, rssi, this.scanSensitivity);
             this.mDeviceMap.put(device.getAddress(), tempDevice);
         }else{
             tempDevice.update(device, rssi);
@@ -378,6 +380,7 @@ public class BLEService extends Service {
     }
 
     public void close(){
+        if(this.gatt == null) return;
         this.refresh(this.gatt);
         this.gatt.disconnect();
         this.gatt.close();
@@ -484,13 +487,17 @@ public class BLEService extends Service {
         }
 
         //send 1st half of credential
-        this.newIV = encrypt(sessionKey, this.hexStringToByteArray("00000000000000000000000000000000"), this.hexStringToByteArray("0A925A8E4FD1F5894A7C8EDC23DA72DF"));
+        //dummy cred: 0A925A8E4FD1F5894A7C8EDC23DA72DF.9FFF6E01B38EF5797C095D78F2E782B7
+        this.newIV = encrypt(sessionKey, this.hexStringToByteArray("00000000000000000000000000000000"), this.hexStringToByteArray(this.credential.substring(0, 32)));
         command = new BLECommand(null, null, null, newIV, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
         this.queueCommand(command);
 
         //send 2nd half of credential
-        command = new BLECommand(null, null, null, encrypt(sessionKey, this.newIV, this.hexStringToByteArray("9FFF6E01B38EF5797C095D78F2E782B7")), BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+        command = new BLECommand(null, null, null, encrypt(sessionKey, this.newIV, this.hexStringToByteArray(this.credential.substring(32, 64))), BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
         this.queueCommand(command);
+
+        //Log.e(TAG, "BLE: Cred1: "+ this.credential.substring(0, 32));
+        //Log.e(TAG, "BLE: Cred2: "+ this.credential.substring(32, 64));
         
     }
 
@@ -720,6 +727,11 @@ public class BLEService extends Service {
 
     public void onDestroy() {
         Log.e(TAG, "BLE: Service onDestroy");
+            unregisterReceiver(this.mReceiver);
+            this.close();
+            this.reset();
+            this.stopScan();
+            super.onDestroy();
     }
 
     public void onLowMemory() {
@@ -738,9 +750,15 @@ public class BLEService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        //Log.e(TAG, "BLE: Service onStartCommand " + intent.getStringExtra("key"));
+
+        Log.e(TAG, "BLE: Service onStartCommand ");
+        this.credential = intent.getStringExtra("credential");
+        this.scanSensitivity = intent.getByteExtra("scanSensitivity", (byte) -59);
+        
         initialiseTwo();
-        return START_STICKY;
+        return START_NOT_STICKY;
+        //return START_REDELIVER_INTENT;
+        //return START_STICKY;
     }
 
     public void onTaskRemoved(Intent rootIntent) {
