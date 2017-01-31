@@ -10,8 +10,8 @@ version="0.0.1">
 
     <repo>https://github.com/cojj90/cordova-plugin-ble-service.git</repo>
 
-    <dependency id="cordova-plugin-compat" version="^1.0.0" />
-    
+    <dependency id="cordova-plugin-compat" version="^1.1.0" />
+
     <js-module src="www/ICT_BLE.js" name="ICT_BLE">
         <clobbers target="ICT_BLE" />
     </js-module>
@@ -34,6 +34,7 @@ version="0.0.1">
         
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
             <service android:name="com.cojj.cordova.ble.service.BLEService" android:isolatedProcess="false" android:process=":remote" />
+            <service android:name=".BLEIntentService" android:exported="false"/>
         </config-file>
 
         <!--
@@ -48,6 +49,10 @@ version="0.0.1">
             src="src/android/BLEService.java"
             target-dir="src/com/cojj/cordova/ble/service" />
             
+            <source-file
+            src="src/android/BLEIntentService.java"
+            target-dir="src/com/cojj/cordova/ble/service" />
+
             <source-file
             src="src/android/BLECommand.java"
             target-dir="src/com/cojj/cordova/ble/service" />
