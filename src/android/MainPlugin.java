@@ -131,22 +131,23 @@ public class MainPlugin extends CordovaPlugin {
     }
 
     private void initService(){
-        /*
-            this.bleServiceIntent = new Intent(cordova.getActivity(), BLEService.class);
-            //cordova.getActivity().bindService(intent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
-            this.context = cordova.getActivity();
-            this.bleServiceIntent.putExtra("credential", this.credential);
-            this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
-            context.startService(this.bleServiceIntent);
-        */
-
-        /* Starting Download Service */
+        
         this.context = cordova.getActivity();
-        this.bleServiceIntent = new Intent(Intent.ACTION_SYNC, null, context, BLEIntentService.class);
+        this.bleServiceIntent = new Intent(cordova.getActivity(), BLEService.class);
+        context.bindService(this.bleServiceIntent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
         this.bleServiceIntent.putExtra("credential", this.credential);
         this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
-        /* Send optional extras to Download IntentService */
         context.startService(this.bleServiceIntent);
+        
+        
+        /*
+        this.context = cordova.getActivity();
+        this.bleServiceIntent = new Intent(context, BLEIntentService.class);
+        this.bleServiceIntent.putExtra("credential", this.credential);
+        this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
+        context.startService(this.bleServiceIntent);
+        */
+        
     }
 
     private void stopService(){

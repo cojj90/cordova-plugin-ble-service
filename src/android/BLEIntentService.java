@@ -14,6 +14,7 @@ import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.os.Build;
 import android.os.Vibrator;
+import android.os.PowerManager;
 import java.security.SecureRandom;
 
 import android.bluetooth.le.ScanResult;
@@ -104,6 +105,9 @@ public class BLEIntentService extends IntentService {
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 	private ShakeDetector mShakeDetector;
+
+    //power
+    private PowerManager.WakeLock wakeLock;
 
     private BluetoothGattCharacteristic txCharacteristics;
 
@@ -249,7 +253,7 @@ public class BLEIntentService extends IntentService {
         }
 
         if (bluetoothAdapter != null) {
-            registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
+            registerReceiver(this.mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
             if (bluetoothAdapter.isEnabled()) {
                 this.scan();
             }
@@ -263,6 +267,9 @@ public class BLEIntentService extends IntentService {
         bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
         vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+
+        //keepAwake
+        this.keepAwake();
 
         // ShakeDetector initialization
 		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
@@ -289,8 +296,7 @@ public class BLEIntentService extends IntentService {
         }
 
         if (bluetoothAdapter != null) {
-            registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
-
+            registerReceiver(this.mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
             
             if (bluetoothAdapter.isEnabled()) {
                 this.scan();
@@ -630,6 +636,23 @@ public class BLEIntentService extends IntentService {
         Log.e(TAG, "BLE: Processing Complete");
         bleProcessing = false;
         processCommands();
+    }
+
+
+        /**
+     * Put the service in a foreground state to prevent app from being killed
+     * by the OS.
+     */
+    private void keepAwake() {
+
+        PowerManager powerMgr = (PowerManager)
+                getSystemService(POWER_SERVICE);
+
+        wakeLock = powerMgr.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK, "BackgroundMode");
+
+        wakeLock.acquire();
+        
     }
 
     public static byte[] encrypt(byte[] key, byte[] initVector, String value) {
