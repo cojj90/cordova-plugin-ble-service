@@ -14,6 +14,7 @@ import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.os.Build;
 import android.os.Vibrator;
+import android.os.PowerManager;
 import java.security.SecureRandom;
 
 import android.bluetooth.le.ScanResult;
@@ -54,6 +55,10 @@ import javax.crypto.spec.SecretKeySpec;
 import android.util.Base64;
 
 import org.json.JSONObject;
+
+import android.os.SystemClock;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 
 public class BLEService extends Service {
     
@@ -104,6 +109,9 @@ public class BLEService extends Service {
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 	private ShakeDetector mShakeDetector;
+
+    //power
+    private PowerManager.WakeLock wakeLock;
 
     private BluetoothGattCharacteristic txCharacteristics;
 
@@ -259,6 +267,9 @@ public class BLEService extends Service {
         bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
         vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+
+        //keepAwake
+        this.keepAwake();
 
         // ShakeDetector initialization
 		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
@@ -756,28 +767,25 @@ public class BLEService extends Service {
         this.scanSensitivity = intent.getByteExtra("scanSensitivity", (byte) -59);
         
         initialiseTwo();
-        return START_NOT_STICKY;
-        //return START_REDELIVER_INTENT;
+        //return START_NOT_STICKY;
+        return START_REDELIVER_INTENT;
         //return START_STICKY;
     }
 
+    @Override
     public void onTaskRemoved(Intent rootIntent) {
         Log.e(TAG, "BLE: Service onTraskRemoved");
-            /*
-            import android.os.SystemClock;
-            import android.app.AlarmManager;
-            import android.app.PendingIntent;
-            Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
-            restartServiceTask.setPackage(getPackageName());    
-            restartServiceTask.putExtra("key", "BOBBY2");
-            PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
-            AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-            myAlarmService.set(
-            AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + 1000,
-            restartPendingIntent);
-            */
+                    
+        Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
+        restartServiceTask.setPackage(getPackageName());    
+        restartServiceTask.putExtra("credential", this.credential);
+        restartServiceTask.putExtra("scanSensitivity", this.scanSensitivity);
+        PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
+        AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        myAlarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartPendingIntent);
+            
     }
+    
 
     public void onTrimMemory(int level) {
         Log.e(TAG, "BLE: Service onTrimMemory");
@@ -789,6 +797,20 @@ public class BLEService extends Service {
     }
 
     //END OF ANDROID LIFECYCLE
+
+    //PowerManager
+    /**
+     * Put the service in a foreground state to prevent app from being killed
+     * by the OS.
+     */
+    private void keepAwake() {
+        PowerManager powerMgr = (PowerManager)
+                getSystemService(POWER_SERVICE);
+        wakeLock = powerMgr.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK, "BackgroundMode");
+
+        wakeLock.acquire();    
+    }
 
     public class LocalBinder extends Binder {
         public LocalBinder() {

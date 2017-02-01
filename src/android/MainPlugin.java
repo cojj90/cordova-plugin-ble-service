@@ -134,11 +134,10 @@ public class MainPlugin extends CordovaPlugin {
         
         this.context = cordova.getActivity();
         this.bleServiceIntent = new Intent(cordova.getActivity(), BLEService.class);
-        context.bindService(this.bleServiceIntent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
+        //context.bindService(this.bleServiceIntent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
         this.bleServiceIntent.putExtra("credential", this.credential);
         this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
         context.startService(this.bleServiceIntent);
-        
         
         /*
         this.context = cordova.getActivity();
