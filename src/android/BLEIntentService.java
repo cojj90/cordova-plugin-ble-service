@@ -1,6 +1,6 @@
 package com.cojj.cordova.ble.service;
 
-import android.app.Service;
+import android.app.IntentService;
 import android.app.Activity;
 import android.content.Context;
 import android.bluetooth.*;
@@ -66,7 +66,7 @@ public class BLEIntentService extends IntentService {
     private static final int REQUEST_ACCESS_COARSE_LOCATION = 5;
     */
     
-    private static final String TAG = "Service";
+    private static final String TAG = "BLEIntentService";
     private final IBinder mBinder = new LocalBinder();
     private final Map<String, BLEDevice> mDeviceMap = new HashMap();
     private ConcurrentLinkedQueue<BLECommand> commandQueue = new ConcurrentLinkedQueue<BLECommand>();
@@ -111,14 +111,14 @@ public class BLEIntentService extends IntentService {
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanData) {
             Log.w("Service", "BLE SCAN:" + device.toString() +" / "+rssi);
-            BLEService.this.scanResult(device, rssi, scanData);
+            BLEIntentService.this.scanResult(device, rssi, scanData);
         }
     };
 
     private final ScanCallback mScanCallback = new ScanCallback(){
         public void onScanResult(int callbackType, ScanResult result){
                 Log.w("Service", "BLE SCAN:" + result.getDevice().toString() +" / "+result.getRssi());
-                BLEService.this.scanResult(result.getDevice(), result.getRssi(), null);
+                BLEIntentService.this.scanResult(result.getDevice(), result.getRssi(), null);
         }
     };
 
@@ -132,42 +132,42 @@ public class BLEIntentService extends IntentService {
        if (newState == BluetoothGatt.STATE_CONNECTED) {
             connected = true;
             gatt.discoverServices();
-        }else if(status1 == 133 && BLEService.this.connected == false){
+        }else if(status1 == 133 && BLEIntentService.this.connected == false){
             gatt.connect(); //handle weird error
         }else if(newState == BluetoothGatt.STATE_DISCONNECTED){
-            BLEService.this.rinseNrepeat();
+            BLEIntentService.this.rinseNrepeat();
         }
     }
 
     public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
-        Log.e("SERVICE", "BLE: onCharcacteristicChanged "+BLEService.this.bytesToHex(characteristic.getValue())); 
+        Log.e("SERVICE", "BLE: onCharcacteristicChanged "+BLEIntentService.this.bytesToHex(characteristic.getValue())); 
 
-        if(BLEService.this.step == 0){
-            BLEService.this.firstSend(characteristic.getValue());
-        }else if(BLEService.this.step == 1 || BLEService.this.step == 2){
+        if(BLEIntentService.this.step == 0){
+            BLEIntentService.this.firstSend(characteristic.getValue());
+        }else if(BLEIntentService.this.step == 1 || BLEIntentService.this.step == 2){
             byte[] temp = characteristic.getValue();
             for(int i=0;i<temp.length;i++){
-               BLEService.this.rxBuffer[i+((step-1)*16)] = temp[i];
+               BLEIntentService.this.rxBuffer[i+((step-1)*16)] = temp[i];
             }
-            if(BLEService.this.step == 2){
-                 BLEService.this.print();
+            if(BLEIntentService.this.step == 2){
+                 BLEIntentService.this.print();
             }
         }
-        BLEService.this.step++;
+        BLEIntentService.this.step++;
     }
     public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
         Log.e("SERVICE", "BLE: onCharacteristicRead"); 
     }
     public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
         Log.e("SERVICE", "BLE: onCharacteristicWrite");
-        BLEService.this.commandCompleted();
+        BLEIntentService.this.commandCompleted();
     }
     public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
         Log.e("SERVICE", "BLE: onDescriptorRead");   
     }
     public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
         Log.e("SERVICE", "BLE: onDescriptorWrite");
-        BLEService.this.commandCompleted();
+        BLEIntentService.this.commandCompleted();
     }
     public void onMtuChanged(BluetoothGatt gatt, int mtu, int status){
         Log.e("SERVICE", "BLE: onMtuChanged");
@@ -182,11 +182,11 @@ public class BLEIntentService extends IntentService {
         Log.e("SERVICE", "BLE: onServicesDiscovered");
         super.onServicesDiscovered(gatt, status);
         if (status == BluetoothGatt.GATT_SUCCESS) {
-            BLECommand command = new BLECommand(UUIDHelper.uuidFromString(BLEService.SERVICE_UUID), UUIDHelper.uuidFromString(BLEService.RX_CHARACTERISTIC), BLECommand.REGISTER_NOTIFY);
-            BLEService.this.queueCommand(command);
+            BLECommand command = new BLECommand(UUIDHelper.uuidFromString(BLEIntentService.SERVICE_UUID), UUIDHelper.uuidFromString(BLEIntentService.RX_CHARACTERISTIC), BLECommand.REGISTER_NOTIFY);
+            BLEIntentService.this.queueCommand(command);
         } else {
             Log.e(TAG, "Service discovery failed. status = " + status);
-            BLEService.this.rinseNrepeat();
+            BLEIntentService.this.rinseNrepeat();
         }
 
     }
@@ -198,18 +198,22 @@ public class BLEIntentService extends IntentService {
         
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
         if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
-            BLEService.this.initialiseTwo();
+            BLEIntentService.this.initialiseTwo();
         }
         if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
             //BLUETOOTH TURNED OFF
 
             //TO DO: CLEAR SERVICE MEMORY
-            BLEService.this.reset();
+            BLEIntentService.this.reset();
         }
         }
     }
 
         };
+
+    public BLEIntentService() {
+        super(BLEIntentService.class.getName());
+    }
 
     public void initialise(CordovaInterface cordova) {
         Log.e(TAG, "BLE: TEST");
@@ -235,7 +239,7 @@ public class BLEIntentService extends IntentService {
 				 */
 				//handleShakeEvent(count);
                 Log.e("SHAKE", "BLE: SHAKE");
-                BLEService.this.connectClosest();
+                BLEIntentService.this.connectClosest();
 			}
 		});
         mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
@@ -275,7 +279,7 @@ public class BLEIntentService extends IntentService {
 				 */
 				//handleShakeEvent(count);
                 Log.e("SHAKE", "BLE: SHAKE");
-                BLEService.this.connectClosest();
+                BLEIntentService.this.connectClosest();
 			}
 		});
         mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
@@ -713,85 +717,16 @@ public class BLEIntentService extends IntentService {
         return sb.toString();
     }
 
-
-    public IBinder onBind(Intent paramIntent) {
-        return this.mBinder;
-    }
-
     //ANDROID LIFECYCLE
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.e(TAG, "BLE: onHandleIntent");
-    }
 
-    public void onCreate() {
-        Log.e(TAG, "BLE: Service onCreate");
-        
-        //sendBroadcast(new Intent("BASDASDAS"));   
-    }
-
-    public void onDestroy() {
-        Log.e(TAG, "BLE: Service onDestroy");
-            unregisterReceiver(this.mReceiver);
-            this.close();
-            this.reset();
-            this.stopScan();
-            super.onDestroy();
-    }
-
-    public void onLowMemory() {
-        Log.e(TAG, "BLE: Service onLowMemory");
-    }
-
-    public void onRebind(Intent intent) {
-        Log.e(TAG, "BLE: Service onRebind");
-    }
-
-    public void onStart(Intent intent, int startId) {
-        Log.e(TAG, "BLE: Service onStart");
-        
-        //this.initialise(cordova);
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-
-        Log.e(TAG, "BLE: Service onStartCommand ");
         this.credential = intent.getStringExtra("credential");
         this.scanSensitivity = intent.getByteExtra("scanSensitivity", (byte) -59);
-        
         initialiseTwo();
-        return START_NOT_STICKY;
-        //return START_REDELIVER_INTENT;
-        //return START_STICKY;
     }
 
-    public void onTaskRemoved(Intent rootIntent) {
-        Log.e(TAG, "BLE: Service onTraskRemoved");
-            /*
-            import android.os.SystemClock;
-            import android.app.AlarmManager;
-            import android.app.PendingIntent;
-            Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
-            restartServiceTask.setPackage(getPackageName());    
-            restartServiceTask.putExtra("key", "BOBBY2");
-            PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
-            AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-            myAlarmService.set(
-            AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + 1000,
-            restartPendingIntent);
-            */
-    }
-
-    public void onTrimMemory(int level) {
-        Log.e(TAG, "BLE: Service onTrimMemory");
-    }
-
-    public boolean onUnbind(Intent intent) {
-        Log.e(TAG, "BLE: Service onUnbind");
-        return true;
-    }
 
     //END OF ANDROID LIFECYCLE
 
@@ -799,8 +734,8 @@ public class BLEIntentService extends IntentService {
         public LocalBinder() {
         }
 
-        public BLEService getService() {
-            return BLEService.this;
+        public BLEIntentService getService() {
+            return BLEIntentService.this;
         }
     }
 }

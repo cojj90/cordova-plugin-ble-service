@@ -29,12 +29,13 @@ version="0.0.1">
             <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
             <uses-permission android:name="android.permission.BLUETOOTH"/>
             <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+            <uses-permission android:name="android.permission.WAKE_LOCK" />
             <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
         </config-file>
         
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
             <service android:name="com.cojj.cordova.ble.service.BLEService" android:isolatedProcess="false" android:process=":remote" />
-            <service android:name=".BLEIntentService" android:exported="false"/>
+            <service android:name="com.cojj.cordova.ble.service.BLEIntentService" android:exported="false"/>
         </config-file>
 
         <!--
