@@ -91,6 +91,7 @@ public class BLEService extends Service {
 
     private boolean connected = false;
     private boolean connecting = false;
+    private boolean init = false;
     private boolean bleProcessing;
     private String key;
     private String credential;
@@ -114,6 +115,13 @@ public class BLEService extends Service {
     private PowerManager.WakeLock wakeLock;
 
     private BluetoothGattCharacteristic txCharacteristics;
+
+    private final Runnable myRunnable = new Runnable() {
+            public void run() {
+                BLEService.this.rinseNrepeat();
+            }
+     };
+     private Handler myHandler = new Handler();
 
     //private String peripheralToConnect = "ED:45:A0:53:90:10";
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
@@ -143,6 +151,7 @@ public class BLEService extends Service {
         }else if(status1 == 133 && BLEService.this.connected == false){
             gatt.connect(); //handle weird error
         }else if(newState == BluetoothGatt.STATE_DISCONNECTED){
+            BLEService.this.myHandler.removeCallbacks(BLEService.this.myRunnable);
             BLEService.this.rinseNrepeat();
         }
     }
@@ -273,8 +282,7 @@ public class BLEService extends Service {
 
         // ShakeDetector initialization
 		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
-		mAccelerometer = mSensorManager
-				.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		mShakeDetector = new ShakeDetector();
 		mShakeDetector.setOnShakeListener(new OnShakeListener() {
 			@Override
@@ -322,10 +330,12 @@ public class BLEService extends Service {
     }
 
     public void stopScan(){
-          if(Build.VERSION.SDK_INT >= 21){    
+          if(Build.VERSION.SDK_INT >= 21 && this.mLEScanner != null){    
                 this.mLEScanner.stopScan(mScanCallback);
             }else{
-                this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+                if(this.bluetoothAdapter != null){
+                    this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+                }
             }
     }
 
@@ -383,6 +393,8 @@ public class BLEService extends Service {
         this.connecting = true;
         this.vibrator.vibrate(500);
         this.gatt = this.mDeviceMap.get(macAddress).getDevice().connectGatt(this, false, this.mGattCallback);
+       
+        this.myHandler.postDelayed(this.myRunnable, 10000);
     }
 
     public void reconnect(){
@@ -412,6 +424,8 @@ public class BLEService extends Service {
         this.mDeviceMap.clear();
         this.connecting = false;
         this.connected = false;
+        this.bleProcessing = false;
+        this.commandQueue.clear();
         this.key = "";
     }
 
@@ -730,42 +744,51 @@ public class BLEService extends Service {
     }
 
     //ANDROID LIFECYCLE
-    public void onCreate() {
-        Log.e(TAG, "BLE: Service onCreate");
-        
-        //sendBroadcast(new Intent("BASDASDAS"));   
-    }
+    
+    // public void onCreate() {
+    //     Log.e(TAG, "BLE: Service onCreate"); 
+    // }
 
+    @Override
     public void onDestroy() {
         Log.e(TAG, "BLE: Service onDestroy");
-            unregisterReceiver(this.mReceiver);
-            this.close();
-            this.reset();
-            this.stopScan();
-            super.onDestroy();
+        unregisterReceiver(this.mReceiver);
+        this.myHandler.removeCallbacks(this.myRunnable);
+        this.close();
+        this.reset();
+        this.stopScan();
+        this.wakeLock.release();
+        super.onDestroy();
     }
 
-    public void onLowMemory() {
-        Log.e(TAG, "BLE: Service onLowMemory");
-    }
+    // public void onLowMemory() {
+    //     Log.e(TAG, "BLE: Service onLowMemory");
+    // }
 
-    public void onRebind(Intent intent) {
-        Log.e(TAG, "BLE: Service onRebind");
-    }
+    // public void onRebind(Intent intent) {
+    //     Log.e(TAG, "BLE: Service onRebind");
+    // }
 
-    public void onStart(Intent intent, int startId) {
-        Log.e(TAG, "BLE: Service onStart");
-        
-        //this.initialise(cordova);
-    }
+    // public void onStart(Intent intent, int startId) {
+    //     Log.e(TAG, "BLE: Service onStart");
+    //     //this.initialise(cordova);
+    // }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
-        Log.e(TAG, "BLE: Service onStartCommand ");
+        
         this.credential = intent.getStringExtra("credential");
         this.scanSensitivity = intent.getByteExtra("scanSensitivity", (byte) -59);
-        
+        Log.e(TAG, "BLE: Service onStartCommand "+this.scanSensitivity);
+
+        if(this.init){
+            Log.e(TAG, "BLE: Service onStartCommand ALREADY INIT");
+            this.rinseNrepeat();
+            return START_REDELIVER_INTENT;
+        }
+
+        Log.e(TAG, "BLE: Service onStartCommand FIRST INIT");
+        this.init = true;
         initialiseTwo();
         //return START_NOT_STICKY;
         return START_REDELIVER_INTENT;
@@ -775,7 +798,8 @@ public class BLEService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         Log.e(TAG, "BLE: Service onTraskRemoved");
-                    
+        this.stopSelf();
+        /*
         Intent restartServiceTask = new Intent(getApplicationContext(),this.getClass());
         restartServiceTask.setPackage(getPackageName());    
         restartServiceTask.putExtra("credential", this.credential);
@@ -783,18 +807,19 @@ public class BLEService extends Service {
         PendingIntent restartPendingIntent =PendingIntent.getService(getApplicationContext(), 1,restartServiceTask, PendingIntent.FLAG_ONE_SHOT);
         AlarmManager myAlarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
         myAlarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartPendingIntent);
+        */
             
     }
     
 
-    public void onTrimMemory(int level) {
-        Log.e(TAG, "BLE: Service onTrimMemory");
-    }
+    // public void onTrimMemory(int level) {
+    //     Log.e(TAG, "BLE: Service onTrimMemory");
+    // }
 
-    public boolean onUnbind(Intent intent) {
-        Log.e(TAG, "BLE: Service onUnbind");
-        return true;
-    }
+    // public boolean onUnbind(Intent intent) {
+    //     Log.e(TAG, "BLE: Service onUnbind");
+    //     return true;
+    // }
 
     //END OF ANDROID LIFECYCLE
 

@@ -5,7 +5,7 @@ import android.bluetooth.BluetoothDevice;
 
 public class BLEDevice {
 
-    private byte THRASH_HOLD = -60;
+    private byte THRASH_HOLD;
     private short SMOOTHING_FACTOR = 2000;
     private byte MAX_DELTA = 2;
 
