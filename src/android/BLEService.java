@@ -9,6 +9,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
@@ -133,29 +134,33 @@ public class BLEService extends Service {
 
     private final ScanCallback mScanCallback = new ScanCallback(){
         public void onScanResult(int callbackType, ScanResult result){
-                Log.w("Service", "BLE SCAN:" + result.getDevice().toString() +" / "+result.getRssi());
-                BLEService.this.scanResult(result.getDevice(), result.getRssi(), null);
+            Log.w("Service", "BLE SCAN:" + result.getDevice().toString() +" / "+result.getRssi());
+            BLEService.this.scanResult(result.getDevice(), result.getRssi(), null);
         }
     };
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback()
-  {
-   
+    {
+      
+    @Override
     public void onConnectionStateChange(BluetoothGatt gatt, int status1, int newState)
     {
-        super.onConnectionStateChange(gatt, status1, newState);
+        //super.onConnectionStateChange(gatt, status1, newState);
         Log.e("SERVICE", "BLE: onConnectionStateChange "+status1+"/"+newState);   
+
+        //if(status1 == 0 && newState ==0) return; //don't do anything for dis->dis case // on LG this is the default disconnect
+
        if (newState == BluetoothGatt.STATE_CONNECTED) {
-            connected = true;
-            gatt.discoverServices();
+            BLEService.this.connected();
         }else if(status1 == 133 && BLEService.this.connected == false){
-            gatt.connect(); //handle weird error
+            //gatt.connect(); //handle weird error
+             BLEService.this.connectRetry(gatt.getDevice().toString());
         }else if(newState == BluetoothGatt.STATE_DISCONNECTED){
-            BLEService.this.myHandler.removeCallbacks(BLEService.this.myRunnable);
-            BLEService.this.rinseNrepeat();
+            BLEService.this.disconnected();
         }
     }
 
+    @Override
     public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
         Log.e("SERVICE", "BLE: onCharcacteristicChanged "+BLEService.this.bytesToHex(characteristic.getValue())); 
 
@@ -172,32 +177,11 @@ public class BLEService extends Service {
         }
         BLEService.this.step++;
     }
-    public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
-        Log.e("SERVICE", "BLE: onCharacteristicRead"); 
-    }
-    public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
-        Log.e("SERVICE", "BLE: onCharacteristicWrite");
-        BLEService.this.commandCompleted();
-    }
-    public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
-        Log.e("SERVICE", "BLE: onDescriptorRead");   
-    }
-    public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
-        Log.e("SERVICE", "BLE: onDescriptorWrite");
-        BLEService.this.commandCompleted();
-    }
-    public void onMtuChanged(BluetoothGatt gatt, int mtu, int status){
-        Log.e("SERVICE", "BLE: onMtuChanged");
-    }
-    public void	onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status){
-        Log.e("SERVICE", "BLE: onReadRemoteRssi");
-    }
-    public void onReliableWriteCompleted(BluetoothGatt gatt, int status){
-        Log.e("SERVICE", "BLE: onReliableWriteCompleted");
-    }
+
+    @Override
     public void onServicesDiscovered(BluetoothGatt gatt, int status){
         Log.e("SERVICE", "BLE: onServicesDiscovered");
-        super.onServicesDiscovered(gatt, status);
+        // super.onServicesDiscovered(gatt, status);
         if (status == BluetoothGatt.GATT_SUCCESS) {
             BLECommand command = new BLECommand(UUIDHelper.uuidFromString(BLEService.SERVICE_UUID), UUIDHelper.uuidFromString(BLEService.RX_CHARACTERISTIC), BLECommand.REGISTER_NOTIFY);
             BLEService.this.queueCommand(command);
@@ -205,86 +189,110 @@ public class BLEService extends Service {
             Log.e(TAG, "Service discovery failed. status = " + status);
             BLEService.this.rinseNrepeat();
         }
-
     }
+    @Override
+    public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
+        //4 times and its complete
+        Log.e("SERVICE", "BLE: onCharacteristicWrite");
+        BLEService.this.commandCompleted();
+    }
+    @Override
+    public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
+        Log.e("SERVICE", "BLE: onDescriptorWrite");
+        BLEService.this.commandCompleted();
+    }
+    // public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
+    //     Log.e("SERVICE", "BLE: onCharacteristicRead"); 
+    // }
+    // public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
+    //     Log.e("SERVICE", "BLE: onDescriptorRead");   
+    // }
+    // public void onMtuChanged(BluetoothGatt gatt, int mtu, int status){
+    //     Log.e("SERVICE", "BLE: onMtuChanged");
+    // }
+    // public void	onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status){
+    //     Log.e("SERVICE", "BLE: onReadRemoteRssi");
+    // }
+    // public void onReliableWriteCompleted(BluetoothGatt gatt, int status){
+    //     Log.e("SERVICE", "BLE: onReliableWriteCompleted");
+    // }
   };
 
-  private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         public void onReceive (Context context, Intent intent) {
-        String action = intent.getAction();
-        
-        if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
-        if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
-            BLEService.this.initialiseTwo();
-        }
-        if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
-            //BLUETOOTH TURNED OFF
-
-            //TO DO: CLEAR SERVICE MEMORY
-            BLEService.this.reset();
-        }
-        }
-    }
-
-        };
-
-    public void initialise(CordovaInterface cordova) {
-        Log.e(TAG, "BLE: TEST");
-
-        this.cordova = cordova;
-        Activity activity = cordova.getActivity();
-        bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
-        this.bluetoothAdapter = bluetoothManager.getAdapter();
-        vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
-
-         // ShakeDetector initialization
-		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
-		mAccelerometer = mSensorManager
-				.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		mShakeDetector = new ShakeDetector();
-		mShakeDetector.setOnShakeListener(new OnShakeListener() {
-			@Override
-			public void onShake(int count) {
-				/*
-				 * The following method, "handleShakeEvent(count):" is a stub //
-				 * method you would use to setup whatever you want done once the
-				 * device has been shook.
-				 */
-				//handleShakeEvent(count);
-                Log.e("SHAKE", "BLE: SHAKE");
-                BLEService.this.connectClosest();
-			}
-		});
-        mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
-
-        if (Build.VERSION.SDK_INT >= 21) {
-            this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
-        }
-
-        if (bluetoothAdapter != null) {
-            registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
-            if (bluetoothAdapter.isEnabled()) {
-                this.scan();
+            String action = intent.getAction();
+            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+            if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
+                BLEService.this.initialiseTwo();
             }
-        } else{
-              // Device does not support Bluetooth
+            if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
+            //BLUETOOTH TURNED OFF
+            //TO DO: CLEAR SERVICE MEMORY
+                BLEService.this.reset();
+                }
+            }
         }
-    }
+    };
+
+    // public void initialise(CordovaInterface cordova) {
+    //     Log.e(TAG, "BLE: TEST");
+
+    //     this.cordova = cordova;
+    //     Activity activity = cordova.getActivity();
+    //     bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
+    //     this.bluetoothAdapter = bluetoothManager.getAdapter();
+    //     vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+
+    //      // ShakeDetector initialization
+	// 	mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+	// 	mAccelerometer = mSensorManager
+	// 			.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	// 	mShakeDetector = new ShakeDetector();
+	// 	mShakeDetector.setOnShakeListener(new OnShakeListener() {
+	// 		@Override
+	// 		public void onShake(int count) {
+	// 			/*
+	// 			 * The following method, "handleShakeEvent(count):" is a stub //
+	// 			 * method you would use to setup whatever you want done once the
+	// 			 * device has been shook.
+	// 			 */
+	// 			//handleShakeEvent(count);
+    //             Log.e("SHAKE", "BLE: SHAKE");
+    //             BLEService.this.connectClosest();
+	// 		}
+	// 	});
+    //     mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
+
+    //     if (Build.VERSION.SDK_INT >= 21) {
+    //         this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
+    //     }
+
+    //     if (bluetoothAdapter != null) {
+    //         registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
+    //         if (bluetoothAdapter.isEnabled()) {
+    //             this.scan();
+    //         }
+    //     } else{
+    //           // Device does not support Bluetooth
+    //     }
+    // }
 
     public void initialiseTwo() {
 
-        bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
+        this.bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
-        vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+        if (bluetoothAdapter == null) return;
+
+        this.vibrator = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
 
         //keepAwake
         this.keepAwake();
 
         // ShakeDetector initialization
-		mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
-		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		mShakeDetector = new ShakeDetector();
-		mShakeDetector.setOnShakeListener(new OnShakeListener() {
+		this.mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+		this.mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		this.mShakeDetector = new ShakeDetector();
+		this.mShakeDetector.setOnShakeListener(new OnShakeListener() {
 			@Override
 			public void onShake(int count) {
 				/*
@@ -297,44 +305,41 @@ public class BLEService extends Service {
                 BLEService.this.connectClosest();
 			}
 		});
-        mSensorManager.registerListener(mShakeDetector, mAccelerometer,	SensorManager.SENSOR_DELAY_UI);
+        this.mSensorManager.registerListener(mShakeDetector, mAccelerometer, SensorManager.SENSOR_DELAY_UI);
 
         if (Build.VERSION.SDK_INT >= 21) {
-        this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
+            this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
         }
 
-        if (bluetoothAdapter != null) {
-            registerReceiver(this.mReceiver, new IntentFilter   (BluetoothAdapter.ACTION_STATE_CHANGED));
-
+        
+       registerReceiver(this.mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
             
-            if (bluetoothAdapter.isEnabled()) {
-                this.scan();
-            }
-
-
-        } else{
-              // Device does not support Bluetooth
+       if (bluetoothAdapter.isEnabled()) {
+          this.scan();
         }
     }
 
     public void scan(){
         if(Build.VERSION.SDK_INT >= 21){
-            ScanSettings settings = new ScanSettings.Builder()
-                        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .build();   
-            this.mLEScanner.startScan(new ArrayList<ScanFilter>(), settings, mScanCallback);
+            
+        new Handler(getApplicationContext().getMainLooper()).post(() -> {
+            ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();   
+            this.mLEScanner.startScan(new ArrayList<ScanFilter>(), settings, this.mScanCallback);
+        });
 
         }else{
-            this.bluetoothAdapter.startLeScan(this.mLeScanCallback);
+            //this.bluetoothAdapter.startLeScan(this.mLeScanCallback);
         }
     }
 
     public void stopScan(){
           if(Build.VERSION.SDK_INT >= 21 && this.mLEScanner != null){    
-                this.mLEScanner.stopScan(mScanCallback);
+              new Handler(getApplicationContext().getMainLooper()).post(() -> {
+                BLEService.this.mLEScanner.stopScan(BLEService.this.mScanCallback);
+              });
             }else{
                 if(this.bluetoothAdapter != null){
-                    this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
+                    //this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
                 }
             }
     }
@@ -391,22 +396,64 @@ public class BLEService extends Service {
         if(this.connecting == true) return;
 
         this.connecting = true;
-        this.vibrator.vibrate(500);
-        this.gatt = this.mDeviceMap.get(macAddress).getDevice().connectGatt(this, false, this.mGattCallback);
+        final BluetoothDevice device = this.bluetoothAdapter.getRemoteDevice(macAddress);
+
+        new Handler(getApplicationContext().getMainLooper()).post(() -> {
+            if (device != null) {
+                BLEService.this.gatt = device.connectGatt(getApplicationContext(), false, BLEService.this.mGattCallback);        
+            }
+        });
+        
        
         this.myHandler.postDelayed(this.myRunnable, 10000);
     }
 
-    public void reconnect(){
-        this.gatt.disconnect();
-        this.gatt.connect();
+    private void connectRetry(String macAddress){
+            this.close();
+            this.reset();
+            this.connect(macAddress);
     }
+    private void disconnect(){
+        if(this.gatt != null){
+            this.gatt.disconnect();
+        }
+    }
+    /**
+     * Called when BLE state changes to "Connected"
+     */
+    public void connected(){
+        this.connected = true;
+        new Handler(getApplicationContext().getMainLooper()).post(() -> {
+            this.gatt.discoverServices();
+            this.vibrator.vibrate(300);
+        });
+    }
+
+    /**
+     * Called when BLE state changes to "disconnected"
+    */
+    public void disconnected(){
+        this.myHandler.removeCallbacks(BLEService.this.myRunnable);
+        this.rinseNrepeat();
+    }
+
+
+    // public void reconnect(){
+    //     this.gatt.disconnect();
+    //     this.gatt.connect();
+    // }
 
     public void close(){
         if(this.gatt == null) return;
-        this.refresh(this.gatt);
-        this.gatt.disconnect();
-        this.gatt.close();
+        
+        final BluetoothGatt tempGatt = this.gatt;
+
+        new Handler(getApplicationContext().getMainLooper()).post(() -> {
+                BLEService.this.refresh(tempGatt);
+                tempGatt.disconnect();
+                tempGatt.close();
+        });
+        
         this.gatt = null;
     }
 
@@ -442,7 +489,7 @@ public class BLEService extends Service {
             this.gatt.disconnect();
             return;
         }
-        
+
         this.key = this.KEYS[received[1]];
     
         
@@ -590,9 +637,12 @@ public class BLEService extends Service {
                 bleProcessing = true;
                 txCharacteristics.setValue(command.getData());
                 txCharacteristics.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-                gatt.writeCharacteristic(txCharacteristics);
+                new Handler(getApplicationContext().getMainLooper()).post(() -> {
+                    gatt.writeCharacteristic(txCharacteristics);
+                });
                 //writeCharacteristic(command.getCallbackContext(), command.getServiceUUID(), command.getCharacteristicUUID(), command.getData(), command.getType());
             } else if (command.getType() == BLECommand.REGISTER_NOTIFY) {
+                
                 Log.w(TAG, "BLE: Register Notify " + command.getCharacteristicUUID());
                 bleProcessing = true;
 
@@ -605,7 +655,7 @@ public class BLEService extends Service {
                 }
 
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(command.getCharacteristicUUID());
-
+                
                 Log.w(TAG, "BLE: SET CHAR NOTIFICATION: " + this.gatt.setCharacteristicNotification(characteristic, true));
 
                  // Why doesn't setCharacteristicNotification write the descriptor?
@@ -613,13 +663,8 @@ public class BLEService extends Service {
                         .getDescriptor(CLIENT_CHARACTERISTIC_CONFIGURATION_UUID);
                 
                     // prefer notify over indicate
-                    if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
-                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                    } else if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
-                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-                    } else {
-                        
-                    }
+                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+           
 
                     gatt.writeDescriptor(descriptor);
                         
@@ -783,7 +828,10 @@ public class BLEService extends Service {
 
         if(this.init){
             Log.e(TAG, "BLE: Service onStartCommand ALREADY INIT");
-            this.rinseNrepeat();
+            if(!this.connecting){
+                this.stopScan();
+                this.rinseNrepeat();
+            }
             return START_REDELIVER_INTENT;
         }
 
