@@ -18,12 +18,6 @@ import android.os.Vibrator;
 import android.os.PowerManager;
 import java.security.SecureRandom;
 
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.BluetoothLeScanner;
-
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import com.cojj.cordova.ble.service.ShakeDetector.OnShakeListener;
@@ -61,7 +55,7 @@ import android.os.SystemClock;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 
-public class BLEService extends Service {
+public class BLEService19 extends Service {
     
     /*
     private static final int BLE_INIT = 0;
@@ -87,7 +81,6 @@ public class BLEService extends Service {
     private BluetoothManager bluetoothManager;
     private BluetoothGatt gatt;
     private BluetoothGattService service;
-    private BluetoothLeScanner mLEScanner;
     private Vibrator vibrator;
 
     private boolean connected = false;
@@ -119,7 +112,7 @@ public class BLEService extends Service {
 
     private final Runnable myRunnable = new Runnable() {
             public void run() {
-                BLEService.this.rinseNrepeat();
+                BLEService19.this.rinseNrepeat();
             }
      };
      private Handler myHandler = new Handler();
@@ -128,14 +121,7 @@ public class BLEService extends Service {
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanData) {
             Log.w("Service", "BLE SCAN:" + device.toString() +" / "+rssi);
-            BLEService.this.scanResult(device, rssi, scanData);
-        }
-    };
-
-    private final ScanCallback mScanCallback = new ScanCallback(){
-        public void onScanResult(int callbackType, ScanResult result){
-            Log.w("Service", "BLE SCAN:" + result.getDevice().toString() +" / "+result.getRssi());
-            BLEService.this.scanResult(result.getDevice(), result.getRssi(), null);
+            BLEService19.this.scanResult(device, rssi, scanData);
         }
     };
 
@@ -151,32 +137,32 @@ public class BLEService extends Service {
         //if(status1 == 0 && newState ==0) return; //don't do anything for dis->dis case // on LG this is the default disconnect
 
        if (newState == BluetoothGatt.STATE_CONNECTED) {
-            BLEService.this.connected();
-        }else if(status1 == 133 && BLEService.this.connected == false){
+            BLEService19.this.connected();
+        }else if(status1 == 133 && BLEService19.this.connected == false){
             //gatt.connect(); //handle weird error
-             BLEService.this.connectRetry(gatt.getDevice().toString());
+             BLEService19.this.connectRetry(gatt.getDevice().toString());
              //gatt.connect();
         }else if(newState == BluetoothGatt.STATE_DISCONNECTED){
-            BLEService.this.disconnected();
+            BLEService19.this.disconnected();
         }
     }
 
     @Override
     public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
-        Log.e("SERVICE", "BLE: onCharcacteristicChanged "+BLEService.this.bytesToHex(characteristic.getValue())); 
+        Log.e("SERVICE", "BLE: onCharcacteristicChanged "+BLEService19.this.bytesToHex(characteristic.getValue())); 
 
-        if(BLEService.this.step == 0){
-            BLEService.this.firstSend(characteristic.getValue());
-        }else if(BLEService.this.step == 1 || BLEService.this.step == 2){
+        if(BLEService19.this.step == 0){
+            BLEService19.this.firstSend(characteristic.getValue());
+        }else if(BLEService19.this.step == 1 || BLEService19.this.step == 2){
             byte[] temp = characteristic.getValue();
             for(int i=0;i<temp.length;i++){
-               BLEService.this.rxBuffer[i+((step-1)*16)] = temp[i];
+               BLEService19.this.rxBuffer[i+((step-1)*16)] = temp[i];
             }
-            if(BLEService.this.step == 2){
-                 BLEService.this.print();
+            if(BLEService19.this.step == 2){
+                 BLEService19.this.print();
             }
         }
-        BLEService.this.step++;
+        BLEService19.this.step++;
     }
 
     @Override
@@ -184,23 +170,23 @@ public class BLEService extends Service {
         Log.e("SERVICE", "BLE: onServicesDiscovered");
         // super.onServicesDiscovered(gatt, status);
         if (status == BluetoothGatt.GATT_SUCCESS) {
-            BLECommand command = new BLECommand(UUIDHelper.uuidFromString(BLEService.SERVICE_UUID), UUIDHelper.uuidFromString(BLEService.RX_CHARACTERISTIC), BLECommand.REGISTER_NOTIFY);
-            BLEService.this.queueCommand(command);
+            BLECommand command = new BLECommand(UUIDHelper.uuidFromString(BLEService19.SERVICE_UUID), UUIDHelper.uuidFromString(BLEService19.RX_CHARACTERISTIC), BLECommand.REGISTER_NOTIFY);
+            BLEService19.this.queueCommand(command);
         } else {
             Log.e(TAG, "Service discovery failed. status = " + status);
-            BLEService.this.rinseNrepeat();
+            BLEService19.this.rinseNrepeat();
         }
     }
     @Override
     public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
         //4 times and its complete
         Log.e("SERVICE", "BLE: onCharacteristicWrite");
-        BLEService.this.commandCompleted();
+        BLEService19.this.commandCompleted();
     }
     @Override
     public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
         Log.e("SERVICE", "BLE: onDescriptorWrite");
-        BLEService.this.commandCompleted();
+        BLEService19.this.commandCompleted();
     }
     // public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
     //     Log.e("SERVICE", "BLE: onCharacteristicRead"); 
@@ -224,12 +210,12 @@ public class BLEService extends Service {
             String action = intent.getAction();
             if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
-                BLEService.this.initialiseTwo();
+                BLEService19.this.initialiseTwo();
             }
             if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
             //BLUETOOTH TURNED OFF
             //TO DO: CLEAR SERVICE MEMORY
-                BLEService.this.reset();
+                BLEService19.this.reset();
                 }
             }
         }
@@ -260,14 +246,10 @@ public class BLEService extends Service {
 				 */
 				//handleShakeEvent(count);
                 Log.e("SHAKE", "BLE: SHAKE");
-                BLEService.this.connectClosest();
+                BLEService19.this.connectClosest();
 			}
 		});
         this.mSensorManager.registerListener(mShakeDetector, mAccelerometer, SensorManager.SENSOR_DELAY_UI);
-
-        if (Build.VERSION.SDK_INT >= 21) {
-            this.mLEScanner = this.bluetoothAdapter.getBluetoothLeScanner();
-        }
 
         
        registerReceiver(this.mReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
@@ -278,28 +260,19 @@ public class BLEService extends Service {
     }
 
     public void scan(){
-        if(Build.VERSION.SDK_INT >= 21){
             
         new Handler(Looper.getMainLooper()).post(() -> {
-            ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();   
-            this.mLEScanner.startScan(new ArrayList<ScanFilter>(), settings, this.mScanCallback);
+           this.bluetoothAdapter.startLeScan(this.mLeScanCallback);
         });
 
-        }else{
-            //this.bluetoothAdapter.startLeScan(this.mLeScanCallback);
-        }
     }
 
-    public void stopScan(){
-          if(Build.VERSION.SDK_INT >= 21 && this.mLEScanner != null){    
-              new Handler(Looper.getMainLooper()).post(() -> {
-                BLEService.this.mLEScanner.stopScan(BLEService.this.mScanCallback);
-              });
-            }else{
-                if(this.bluetoothAdapter != null){
-                    //this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
-                }
+    public void stopScan(){      
+        new Handler(Looper.getMainLooper()).post(() -> {
+           if(this.bluetoothAdapter != null){
+                this.bluetoothAdapter.stopLeScan(this.mLeScanCallback);
             }
+        });
     }
 
     public void scanResult(final BluetoothDevice device, int rssi, byte[] scanData){
@@ -391,7 +364,7 @@ public class BLEService extends Service {
      * Called when BLE state changes to "disconnected"
     */
     public void disconnected(){
-        this.myHandler.removeCallbacks(BLEService.this.myRunnable);
+        this.myHandler.removeCallbacks(BLEService19.this.myRunnable);
         this.rinseNrepeat();
     }
 
@@ -755,7 +728,7 @@ public class BLEService extends Service {
     public void onDestroy() {
         Log.e(TAG, "BLE: Service onDestroy");
         
-        PendingIntent pendingIntent = PendingIntent.getService(this, 444, new Intent(this, BLEService.class), PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getService(this, 444, new Intent(this, BLEService19.class), PendingIntent.FLAG_UPDATE_CURRENT);
         AlarmManager alarmManager = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
         alarmManager.cancel(pendingIntent);
 
@@ -849,8 +822,8 @@ public class BLEService extends Service {
         public LocalBinder() {
         }
 
-        public BLEService getService() {
-            return BLEService.this;
+        public BLEService19 getService() {
+            return BLEService19.this;
         }
     }
 }

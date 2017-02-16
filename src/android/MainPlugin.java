@@ -174,7 +174,7 @@ public class MainPlugin extends CordovaPlugin {
         AlarmManager alarmManager = (AlarmManager)this.context.getSystemService(Context.ALARM_SERVICE);
         this.context.startService(intent);
         //int a = 3600000;
-        int a = 12*60000;
+        int a = 5*60000;
         alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis()+a, a, pendingIntent);
         //alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis()+60000,60000, pendingIntent);
         /*

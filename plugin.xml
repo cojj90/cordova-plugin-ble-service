@@ -53,7 +53,7 @@ version="0.0.1">
             target-dir="src/com/cojj/cordova/ble/service" />
             
             <source-file
-            src="src/android/BLEIntentService.java"
+            src="src/android/BLEService19.java"
             target-dir="src/com/cojj/cordova/ble/service" />
 
             <source-file
