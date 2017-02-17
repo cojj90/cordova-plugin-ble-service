@@ -13,6 +13,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.Context;
 import android.os.IBinder;
+import android.os.Build;
 import android.util.Log;
 import android.os.Handler;
 import android.Manifest;
@@ -26,21 +27,17 @@ public class MainPlugin extends CordovaPlugin {
     private static final String TAG = "ICT BLE";
     private static final String ACCESS_COARSE_LOCATION = Manifest.permission.ACCESS_COARSE_LOCATION;
     private static final int REQUEST_ACCESS_COARSE_LOCATION = 2;
+
     private CallbackContext callbackContext;
     private Context context;
-    private BLEService bleService;
-
     private String credential;
     private byte scanSensitivity;
-    private Intent bleServiceIntent;
-    private PendingIntent pintent;
-    private AlarmManager alarm;
 
-    public static byte bobby = -55;
+
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName paramAnonymousComponentName, IBinder paramAnonymousIBinder) {
             Log.e(TAG, "BLE: SERVICE CONNECTED");
-            MainPlugin.this.bleService = ((BLEService.LocalBinder) paramAnonymousIBinder).getService();
+            //MainPlugin.this.bleService = ((BLEService.LocalBinder) paramAnonymousIBinder).getService();
             //MainPlugin.this.bleService.initialise(cordova);
 
         }
@@ -48,15 +45,12 @@ public class MainPlugin extends CordovaPlugin {
         public void onServiceDisconnected(ComponentName paramAnonymousComponentName) {
             Log.e(TAG, "BLE: SERVICE DISCONNECTED");
         }
-
     };
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         this.context = cordova.getActivity();
-        this.bleServiceIntent = new Intent(this.context, BLEService.class);
-        this.alarm = (AlarmManager)this.context.getSystemService(Context.ALARM_SERVICE);
         Log.e(TAG, "BLE: Main Cordova Init");
     }
 
@@ -89,32 +83,32 @@ public class MainPlugin extends CordovaPlugin {
         
         this.callbackContext = callbackContext;
 
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                PluginResult result = new PluginResult(PluginResult.Status.OK, "YOUR_MESSAGE");
-                // PluginResult result = new PluginResult(PluginResult.Status.ERROR, "YOUR_ERROR_MESSAGE");
-                result.setKeepCallback(true);
-                MainPlugin.this.callbackContext.sendPluginResult(result);
-            }
-        }, 5000);
+        // Handler handler = new Handler();
+        // handler.postDelayed(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         PluginResult result = new PluginResult(PluginResult.Status.OK, "YOUR_MESSAGE");
+        //         // PluginResult result = new PluginResult(PluginResult.Status.ERROR, "YOUR_ERROR_MESSAGE");
+        //         result.setKeepCallback(true);
+        //         MainPlugin.this.callbackContext.sendPluginResult(result);
+        //     }
+        // }, 5000);
 
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-                result.setKeepCallback(false);
-                MainPlugin.this.callbackContext.sendPluginResult(result);
-            }
-        }, 10000);
+        // handler.postDelayed(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+        //         result.setKeepCallback(false);
+        //         MainPlugin.this.callbackContext.sendPluginResult(result);
+        //     }
+        // }, 10000);
 
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                MainPlugin.this.callbackContext.success();
-            }
-        }, 15000);
+        // handler.postDelayed(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         MainPlugin.this.callbackContext.success();
+        //     }
+        // }, 15000);
 
         /*
         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
@@ -142,30 +136,14 @@ public class MainPlugin extends CordovaPlugin {
     }
 
     private void initService(){
-        
-        /*
-        
-        this.bleServiceIntent = new Intent(cordova.getActivity(), BLEService.class);
-        //context.bindService(this.bleServiceIntent, this.mServiceConnection, Context.BIND_AUTO_CREATE);
-        this.bleServiceIntent.putExtra("credential", this.credential);
-        this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
-        context.startService(this.bleServiceIntent);
-        */
-        
-        // this.alarm.cancel(this.pintent);
-        // this.bleServiceIntent.putExtra("credential", this.credential);
-        // this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
-        // Log.e(TAG, "BLE: SENSITIVITY: "+this.bleServiceIntent.getByteExtra("scanSensitivity", (byte) -59));
-        // //this.context.startService(this.bleServiceIntent);
-        // //this.context.setExact(int, long, PendingIntent).
-        // this.pintent = PendingIntent.getService(this.context, 444, this.bleServiceIntent, 0);
-        // //PendingIntent.FLAG_CANCEL_CURRENT
-        // this.alarm.cancel(this.pintent);
-        
-        // //this.alarm.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), AlarmManager.INTERVAL_FIFTEEN_MINUTES, this.pintent);
-        // alarm.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(),30000, this.pintent);
 
-        Intent intent  = new Intent(this.context, BLEService.class);
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= 21) {
+            intent  = new Intent(this.context, BLEService19.class);
+        }else{
+            intent  = new Intent(this.context, BLEService19.class);
+        }
+
         intent.putExtra("credential", this.credential);
         Log.e(TAG, "BLE check1: " + this.credential + "/" + this.scanSensitivity);
         intent.putExtra("scanSensitivity", this.scanSensitivity);
@@ -176,20 +154,10 @@ public class MainPlugin extends CordovaPlugin {
         //int a = 3600000;
         int a = 5*60000;
         alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis()+a, a, pendingIntent);
-        //alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis()+60000,60000, pendingIntent);
-        /*
-        this.bleServiceIntent = new Intent(context, BLEIntentService.class);
-        this.bleServiceIntent.putExtra("credential", this.credential);
-        this.bleServiceIntent.putExtra("scanSensitivity", this.scanSensitivity);
-        context.startService(this.bleServiceIntent);
-        */
         
     }
 
     private void stopService(){
-        // this.context.stopService(this.bleServiceIntent);
-        // this.alarm.cancel(this.pintent);
-
         Intent intent  = new Intent(this.context, BLEService.class);
         intent.putExtra("credential", this.credential);
         intent.putExtra("scanSensitivity", this.scanSensitivity);

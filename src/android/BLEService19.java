@@ -86,6 +86,7 @@ public class BLEService19 extends Service {
     private boolean connected = false;
     private boolean connecting = false;
     private boolean init = false;
+    private boolean isShake = false;
     private boolean bleProcessing;
     private String key;
     private String credential;
@@ -210,7 +211,7 @@ public class BLEService19 extends Service {
             String action = intent.getAction();
             if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON){
-                BLEService19.this.initialiseTwo();
+                BLEService19.this.initialise();
             }
             if(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_OFF){
             //BLUETOOTH TURNED OFF
@@ -221,7 +222,7 @@ public class BLEService19 extends Service {
         }
     };
 
-    public void initialiseTwo() {
+    public void initialise() {
 
         this.bluetoothManager = (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         this.bluetoothAdapter = bluetoothManager.getAdapter();
@@ -246,6 +247,7 @@ public class BLEService19 extends Service {
 				 */
 				//handleShakeEvent(count);
                 Log.e("SHAKE", "BLE: SHAKE");
+                BLEService19.this.isShake=true;
                 BLEService19.this.connectClosest();
 			}
 		});
@@ -313,7 +315,7 @@ public class BLEService19 extends Service {
             //this means a candidate is found
             this.stopScan();
             this.connect(champion);
-
+            if(this.isShake == true) this.vibrator.vibrate(300);
         }
 
         /*
@@ -325,7 +327,6 @@ public class BLEService19 extends Service {
     
     public void connect(String macAddress){
         if(this.connecting == true) return;
-
         this.connecting = true;
         final BluetoothDevice device = this.bluetoothAdapter.getRemoteDevice(macAddress);
 
@@ -341,7 +342,9 @@ public class BLEService19 extends Service {
 
     private void connectRetry(String macAddress){
             this.close();
+            Boolean temp = this.isShake;
             this.reset();
+            this.isShake = temp;
             this.connect(macAddress);
     }
     private void disconnect(){
@@ -355,8 +358,12 @@ public class BLEService19 extends Service {
     public void connected(){
         this.connected = true;
         new Handler(Looper.getMainLooper()).post(() -> {
-            this.gatt.discoverServices();
-            this.vibrator.vibrate(300);
+            try{
+                this.gatt.discoverServices();
+                if(this.isShake == false) this.vibrator.vibrate(300);
+            }catch(Exception e){
+
+            }
         });
     }
 
@@ -402,21 +409,24 @@ public class BLEService19 extends Service {
         this.connecting = false;
         this.connected = false;
         this.bleProcessing = false;
+        this.isShake = false;
         this.commandQueue.clear();
         this.key = "";
     }
 
     public void rinseNrepeat(){
-            this.close();
-            this.reset();
-            this.sleep(4000);
-            this.scan();
+            new Handler(Looper.getMainLooper()).post(() -> {
+                this.close();
+                this.reset();
+                this.sleep(4000);
+                this.scan();
+            });
     }
 
     public void firstSend(byte[] received){
 
         if(received[0] != -86){
-            this.gatt.disconnect();
+            if(this.gatt != null) this.gatt.disconnect();
             return;
         }
 
@@ -534,11 +544,7 @@ public class BLEService19 extends Service {
     private void queueCommand(BLECommand command) {
         Log.e(TAG, "BLE: Queuing Command " + command);
         commandQueue.add(command);
-        /*
-        PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-        result.setKeepCallback(true);
-        command.getCallbackContext().sendPluginResult(result);
-        */
+
         if (!bleProcessing) {
             processCommands();
         }
@@ -568,15 +574,15 @@ public class BLEService19 extends Service {
                 txCharacteristics.setValue(command.getData());
                 txCharacteristics.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    gatt.writeCharacteristic(txCharacteristics);
+                    if(this.gatt != null) this.gatt.writeCharacteristic(txCharacteristics);
                 });
-                //writeCharacteristic(command.getCallbackContext(), command.getServiceUUID(), command.getCharacteristicUUID(), command.getData(), command.getType());
             } else if (command.getType() == BLECommand.REGISTER_NOTIFY) {
                 
                 Log.w(TAG, "BLE: Register Notify " + command.getCharacteristicUUID());
                 bleProcessing = true;
 
-                service = gatt.getService(UUIDHelper.uuidFromString(this.SERVICE_UUID));
+
+                service = this.gatt.getService(UUIDHelper.uuidFromString(this.SERVICE_UUID));
                 
                 //Keep getting null error here
                 if(service == null){
@@ -773,7 +779,7 @@ public class BLEService19 extends Service {
 
         Log.e(TAG, "BLE: Service onStartCommand FIRST INIT");
         this.init = true;
-        initialiseTwo();
+        initialise();
         //return START_NOT_STICKY;
         return START_REDELIVER_INTENT;
         //return START_STICKY;
