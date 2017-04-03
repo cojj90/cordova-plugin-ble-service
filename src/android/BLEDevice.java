@@ -95,5 +95,9 @@ public class BLEDevice {
         return this.average;
     }
 
+    public long getLastseen(){
+        return this.lastSeen;
+    }
+
 
 }

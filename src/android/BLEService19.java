@@ -299,11 +299,11 @@ public class BLEService19 extends Service {
     public void connectClosest(){
         //check if empty
         String champion = "";
-        float champRssi = -90.4124524F;
+        float champRssi = -84.4124524F;
         for (Map.Entry<String, BLEDevice> entry : this.mDeviceMap.entrySet())
         {   
             final BLEDevice tempDevice = entry.getValue();
-            if(champRssi < tempDevice.getAverage()){
+            if(champRssi < tempDevice.getAverage() && System.currentTimeMillis()-tempDevice.getLastseen() < 4500){
                 champion = tempDevice.getDevice().getAddress();
                 champRssi = tempDevice.getAverage();
             }
@@ -311,7 +311,7 @@ public class BLEService19 extends Service {
 
         Log.e(TAG, "BLE: CLOEST: "+ champion + champRssi);
 
-        if(champRssi != -90.4124524F){
+        if(champRssi != -84.4124524F && !champion.isEmpty()){
             //this means a candidate is found
             this.stopScan();
             this.connect(champion);
